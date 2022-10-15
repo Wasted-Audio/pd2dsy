@@ -58,6 +58,7 @@ def main():
     parser.add_argument('--rom', type=str, help='follow with "speed", "size", or "double_size" to optimize ROM usage for your desired parameter (defaults to speed).', default='speed')
     parser.add_argument('--libdaisy-depth', type=int, help='specify the number of directories between the project and libDaisy.', default=1)
     parser.add_argument('--no-build',  help='prevent automatic building and flashing after hvcc generation', action='store_true')
+    parser.add_argument('--no-flash',  help='prevent automatic flashing after hvcc generation', action='store_true')
 
     args = parser.parse_args()
     inpath = os.path.abspath(args.pd_input)
@@ -93,7 +94,7 @@ def main():
             print(f'{Colours.red}Error:{Colours.end} unable to open custom json file "{args.custom_json}"')
             halt()
         meta = {"daisy": {"board": custom_json['name'], "board_file": args.custom_json}}
-    
+
     meta_path = os.path.join(os.path.dirname(__file__), "util/daisy.json")
     ram_type = args.ram
 
@@ -181,7 +182,7 @@ def main():
             main_file = file
             target = match.group(1)
             break
-    
+
     # If we can find the main file, then we can easily make the project structure even a bit nicer
     if main_file is not None:
         shutil.move(os.path.join(output, 'source', main_file), os.path.join(output, main_file))
@@ -190,7 +191,7 @@ def main():
         makefile_path = os.path.join(os.path.dirname(__file__), 'util', 'Makefile')
         with open(makefile_path, 'r') as file:
             makefile = file.read()
-        
+
         makefile = makefile.replace('# GENERATE TARGET', f'TARGET={target}')
         makefile = makefile.replace('# LIBDAISY DEPTH', '../'*args.libdaisy_depth)
         if meta['daisy'].get('bootloader', False):
@@ -209,7 +210,17 @@ def main():
             else:
                 build_process = subprocess.Popen(f'make -C {output} && make program-dfu -C {output}',
                     shell=True, stderr=subprocess.STDOUT)
-                
+
+            build_process.wait()
+
+        if args.no_flash:
+            if meta['daisy'].get('bootloader', False):
+                build_process = subprocess.Popen(f'make -C {output}',
+                    shell=True, stderr=subprocess.STDOUT)
+            else:
+                build_process = subprocess.Popen(f'make -C {output}',
+                    shell=True, stderr=subprocess.STDOUT)
+
             build_process.wait()
 
     else:
@@ -222,7 +233,18 @@ def main():
             else:
                 build_process = subprocess.Popen(f'make -C {daisy_src} && make program-dfu -C {daisy_src}',
                     shell=True, stderr=subprocess.STDOUT)
-                
+
+            build_process.wait()
+
+        if args.no_flash:
+            daisy_src = os.path.join(output, 'source')
+            if meta['daisy'].get('bootloader', False):
+                build_process = subprocess.Popen(f'make -C {daisy_src}',
+                    shell=True, stderr=subprocess.STDOUT)
+            else:
+                build_process = subprocess.Popen(f'make -C {daisy_src}',
+                    shell=True, stderr=subprocess.STDOUT)
+
             build_process.wait()
 
 if __name__ == "__main__":
